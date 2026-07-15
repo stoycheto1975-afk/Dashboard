@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Инвест">
+<title>Инвест Монитор</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { background: #0a0e17; color: #f9fafb; font-family: -apple-system, 'SF Pro Display', sans-serif; padding-bottom: 60px; }
+
+  .header { background: #111827; border-bottom: 1px solid #1f2937; padding: 14px 16px; position: sticky; top: 0; z-index: 10; }
+  .header-title { color: #f59e0b; font-weight: 800; font-size: 15px; letter-spacing: 1px; }
+  .header-sub { color: #6b7280; font-size: 10px; margin-top: 2px; }
+  .header-row { display: flex; justify-content: space-between; align-items: center; }
+  .refresh-btn { background: #78350f; border: none; color: #f59e0b; border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+  .tabs { display: flex; background: #111827; border-bottom: 1px solid #1f2937; }
+  .tab { flex: 1; padding: 10px 4px; border: none; background: transparent; color: #6b7280; border-bottom: 2px solid transparent; font-size: 10px; font-weight: 700; letter-spacing: 1px; cursor: pointer; }
+  .tab.active { color: #f59e0b; border-bottom-color: #f59e0b; }
+
+  .content { padding: 14px 14px 0; }
+
+  .card { background: #111827; border: 1px solid #1f2937; border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; }
+  .card.bull { border-color: #10b98144; box-shadow: 0 0 12px #10b98118; }
+  .card.bear { border-color: #ef444444; box-shadow: 0 0 12px #ef444418; }
+  .card-title { color: #6b7280; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; display: flex; justify-content: space-between; }
+
+  .big-price { font-size: 28px; font-weight: 800; font-family: monospace; margin-bottom: 8px; }
+  .price-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .price-label { color: #6b7280; font-size: 12px; }
+  .price-value { font-size: 15px; font-weight: 600; font-family: monospace; }
+  .price-sub { color: #6b7280; font-size: 10px; text-align: right; }
+
+  .zone { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 8px 10px; border-radius: 6px; }
+  .zone-label { font-size: 11px; font-weight: 700; }
+  .zone-sub { font-size: 10px; color: #6b7280; }
+  .zone-price { font-family: monospace; font-weight: 700; }
+
+  .signal-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .chip { border-radius: 4px; padding: 3px 8px; font-size: 10px; font-weight: 600; }
+  .chip.confirmed { background: #10b98122; color: #10b981; border: 1px solid #10b98155; }
+  .chip.warning { background: #f59e0b22; color: #f59e0b; border: 1px solid #f59e0b55; }
+  .chip.none { background: #1f2937; color: #6b7280; border: 1px solid #1f2937; }
+
+  .progress-bar-bg { background: #1f2937; border-radius: 4px; height: 6px; margin-bottom: 6px; }
+  .progress-bar { height: 100%; border-radius: 4px; transition: width 0.5s; }
+
+  .catalyst { display: flex; justify-content: space-between; margin-bottom: 8px; }
+  .catalyst-name { font-size: 12px; color: #f9fafb; }
+  .catalyst-date { font-size: 10px; color: #6b7280; }
+
+  .miner { border-bottom: 1px solid #1f2937; padding-bottom: 8px; margin-bottom: 8px; }
+  .miner-row { display: flex; justify-content: space-between; }
+
+  .error { color: #ef4444; font-size: 11px; margin-top: 6px; }
+  .spinner { display: inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  .dca-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 8px 10px; border-radius: 6px; }
+  .dca-active { background: #10b98111; border: 1px solid #10b98144; }
+  .dca-inactive { background: #1f2937; border: 1px solid #1f2937; }
+
+  .link-item { border-bottom: 1px solid #1f2937; padding-bottom: 6px; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-row">
+    <div>
+      <div class="header-title">⚡ ИНВЕСТ МОНИТОР</div>
+      <div class="header-sub" id="last-update">Зарежда...</div>
+    </div>
+    <button class="refresh-btn" onclick="fetchAll()">↻ ОБНОВИ</button>
+  </div>
+  <div class="error" id="error-msg" style="display:none"></div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('crypto', this)">КРИПТО</button>
+  <button class="tab" onclick="showTab('metals', this)">МЕТАЛИ</button>
+  <button class="tab" onclick="showTab('cap', this)">КАПИТ.</button>
+  <button class="tab" onclick="showTab('dca', this)">DCA</button>
+  <button class="tab" onclick="showTab('links', this)">ЛИНКОВЕ</button>
+</div>
+
+<!-- КРИПТО -->
+<div id="tab-crypto" class="content">
+  <div class="card" id="btc-card">
+    <div class="card-title"><span>Bitcoin</span><span id="btc-signal" style="font-size:10px;font-weight:700"></span></div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+      <div class="big-price" id="btc-price" style="color:#f9fafb">$—</div>
+      <div style="font-size:16px;font-weight:700" id="btc-change">—</div>
+    </div>
+    <div class="price-row"><span class="price-label">24ч Обем</span><div style="text-align:right"><div class="price-value" id="btc-vol">—</div><div class="price-sub" id="btc-vol-x"></div></div></div>
+    <div class="price-row"><span class="price-label">Fear & Greed</span><div style="text-align:right"><div class="price-value" id="fg-val">—</div><div class="price-sub" id="fg-label"></div></div></div>
+    <div style="height:1px;background:#1f2937;margin:8px 0"></div>
+    <div class="price-row"><span class="price-label" style="color:#f59e0b">DCA Зона 1</span><span class="price-value" style="color:#6b7280">$62,000</span></div>
+    <div class="price-row"><span class="price-label" style="color:#f59e0b">DCA Зона 2</span><span class="price-value" style="color:#6b7280">$52-55,000</span></div>
+    <div class="price-row"><span class="price-label" style="color:#ef4444">DCA Зона 3</span><span class="price-value" style="color:#f59e0b">$49,479 (LTH)</span></div>
+    <div class="price-row"><span class="price-label" style="color:#ef4444">DCA Зона 4</span><span class="price-value" style="color:#ef4444">$45-47,000</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Ethereum</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+      <div class="big-price" id="eth-price" style="color:#f9fafb;font-size:24px">$—</div>
+      <div style="font-size:14px;font-weight:700" id="eth-change">—</div>
+    </div>
+    <div class="price-row"><span class="price-label">Поддръжка</span><span class="price-value" style="color:#6b7280">$1,500-1,600</span></div>
+    <div class="price-row"><span class="price-label">DCA при BTC $45K</span><span class="price-value" style="color:#f59e0b">$1,200-1,250</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">XRP / Ripple</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+      <div class="big-price" id="xrp-price" style="color:#f9fafb;font-size:24px">$—</div>
+      <div style="font-size:14px;font-weight:700" id="xrp-change">—</div>
+    </div>
+    <div class="price-row"><span class="price-label">Realized Price</span><span class="price-value" style="color:#ef4444">$1.48 (над спот)</span></div>
+    <div class="price-row"><span class="price-label">Структурно дъно</span><span class="price-value" style="color:#f59e0b">$0.70-0.90</span></div>
+  </div>
+</div>
+
+<!-- МЕТАЛИ -->
+<div id="tab-metals" class="content" style="display:none">
+  <div class="card">
+    <div class="card-title">Сребро</div>
+    <div class="big-price" id="silver-price" style="color:#f9fafb">Виж barchart.com/SI</div>
+    <div class="price-row"><span class="price-label">ATH (яну. 2026)</span><span class="price-value" style="color:#6b7280">$121.78</span></div>
+    <div class="price-row"><span class="price-label">AISC Miners</span><span class="price-value" style="color:#10b981">$18-22/oz</span></div>
+    <div class="price-row"><span class="price-label">COMEX Coverage</span><span class="price-value" style="color:#ef4444">15.8% (стрес)</span></div>
+    <div class="price-row"><span class="price-label">Структурен дефицит</span><span class="price-value" style="color:#6b7280">46.3M oz (6-та год.)</span></div>
+    <div class="price-row"><span class="price-label">Sprott target</span><span class="price-value" style="color:#f59e0b">$100-150 (2026-27)</span></div>
+    <div class="price-row"><span class="price-label">Max Pain опции</span><span class="price-value" style="color:#f59e0b">$60-65</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Злато</div>
+    <div class="big-price" id="gold-price" style="color:#f59e0b">Виж barchart.com/GC</div>
+    <div class="price-row"><span class="price-label">Gold/Silver Ratio</span><span id="gs-ratio" class="price-value" style="color:#f59e0b">~68x (норма 40-60x)</span></div>
+    <div class="price-row"><span class="price-label">Психол. floor</span><span class="price-value" style="color:#6b7280">$4,000</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Mining Позиции</div>
+    <div class="miner">
+      <div class="miner-row"><span style="color:#f59e0b;font-weight:700">EXK</span><span style="color:#10b981;font-size:12px">→ $15.15 (ATH)</span></div>
+      <div style="color:#6b7280;font-size:11px">Entry $5.26 · Stop $6.50 · Q2: 12 авг.</div>
+    </div>
+    <div class="miner">
+      <div class="miner-row"><span style="color:#f59e0b;font-weight:700">APGO</span><span style="color:#10b981;font-size:12px">→ CA$8.88+</span></div>
+      <div style="color:#6b7280;font-size:11px">Entry CA$2.55 · PEA Q3 2026 · Sprott -49%</div>
+    </div>
+    <div class="miner">
+      <div class="miner-row"><span style="color:#f59e0b;font-weight:700">BTG</span><span style="color:#10b981;font-size:12px">→ $6.55-7.00</span></div>
+      <div style="color:#6b7280;font-size:11px">Entry $3.44 · Fekola permit pending</div>
+    </div>
+    <div class="miner">
+      <div class="miner-row"><span style="color:#f59e0b;font-weight:700">MOG.V</span><span style="color:#10b981;font-size:12px">→ CA$1.50-2.00</span></div>
+      <div style="color:#6b7280;font-size:11px">Rio Tinto $15M · Chile assays pending</div>
+    </div>
+    <div class="miner" style="border:none;margin:0;padding:0">
+      <div class="miner-row"><span style="color:#f59e0b;font-weight:700">HYMC</span><span style="color:#10b981;font-size:12px">→ $33-35 (post-dilution)</span></div>
+      <div style="color:#6b7280;font-size:11px">Limit $19 · Dilution 36.8M warrants</div>
+    </div>
+  </div>
+</div>
+
+<!-- КАПИТУЛАЦИЯ -->
+<div id="tab-cap" class="content" style="display:none">
+  <div class="card">
+    <div class="card-title">Bitcoin Капитулационна Матрица</div>
+    <div class="signal-chips" id="cap-chips"></div>
+    <div class="progress-bar-bg"><div class="progress-bar" id="cap-bar" style="width:0%;background:#10b981"></div></div>
+    <div style="color:#6b7280;font-size:11px" id="cap-summary">Зарежда...</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Ценови Зони при Капитулация</div>
+    <div class="zone" style="background:#f59e0b11;border:1px solid #f59e0b33">
+      <div><div class="zone-label" style="color:#f59e0b">Зона 1</div><div class="zone-sub">200W MA — тестван</div></div>
+      <div class="zone-price" style="color:#f9fafb">$58-60K</div>
+    </div>
+    <div class="zone" style="background:#f59e0b11;border:1px solid #f59e0b33">
+      <div><div class="zone-label" style="color:#f59e0b">Зона 2</div><div class="zone-sub">Fed hike + Saylor ефект</div></div>
+      <div class="zone-price" style="color:#f9fafb">$52-55K</div>
+    </div>
+    <div class="zone" style="background:#ef444411;border:1px solid #ef444433">
+      <div><div class="zone-label" style="color:#ef4444">Зона 3</div><div class="zone-sub">LTH Realized Price</div></div>
+      <div class="zone-price" style="color:#f9fafb">$49,479</div>
+    </div>
+    <div class="zone" style="background:#ef444422;border:1px solid #ef444455">
+      <div><div class="zone-label" style="color:#ef4444">Зона 4 — ПЪЛНА</div><div class="zone-sub">MVRV=1.0, vol 4x, F&G<10</div></div>
+      <div class="zone-price" style="color:#ef4444">$45-47K</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Провери Ръчно</div>
+    <div class="link-item">
+      <div style="color:#f9fafb;font-size:12px;font-weight:600">MVRV Z-Score / NUPL</div>
+      <div style="color:#3b82f6;font-size:11px">lookintobitcoin.com</div>
+      <div style="color:#6b7280;font-size:10px">Праг: MVRV под 0, NUPL под 0</div>
+    </div>
+    <div class="link-item">
+      <div style="color:#f9fafb;font-size:12px;font-weight:600">Funding Rate / Liquidations</div>
+      <div style="color:#3b82f6;font-size:11px">coinglass.com</div>
+      <div style="color:#6b7280;font-size:10px">Праг: Funding под -0.05%, Liq. над $1B</div>
+    </div>
+    <div class="link-item">
+      <div style="color:#f9fafb;font-size:12px;font-weight:600">Silver Put/Call Ratio</div>
+      <div style="color:#3b82f6;font-size:11px">barchart.com → SI → Options</div>
+      <div style="color:#6b7280;font-size:10px">OI Ratio под 0.40 = bullish</div>
+    </div>
+    <div class="link-item" style="border:none;margin:0;padding:0">
+      <div style="color:#f9fafb;font-size:12px;font-weight:600">STRC (Strategy stress)</div>
+      <div style="color:#3b82f6;font-size:11px">IBKR → STRC</div>
+      <div style="color:#6b7280;font-size:10px">Под $85 = Strategy под стрес</div>
+    </div>
+  </div>
+</div>
+
+<!-- DCA ПЛАН -->
+<div id="tab-dca" class="content" style="display:none">
+  <div class="card">
+    <div class="card-title">Bitcoin DCA Структура</div>
+    <div id="dca-zones"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Халвинг Контекст</div>
+    <div class="price-row"><span class="price-label">Последен халвинг</span><span class="price-value" style="color:#6b7280">19 апр. 2024</span></div>
+    <div class="price-row"><span class="price-label">Block reward</span><span class="price-value" style="color:#6b7280">3.125 BTC</span></div>
+    <div class="price-row"><span class="price-label">Следващ халвинг</span><span class="price-value" style="color:#f59e0b">~апр. 2028</span></div>
+    <div class="price-row"><span class="price-label">Supply growth</span><span class="price-value" style="color:#6b7280">~0.4%/год.</span></div>
+    <div class="price-row"><span class="price-label">Implied ATH</span><span class="price-value" style="color:#f59e0b">$150K-250K</span></div>
+    <div class="price-row"><span class="price-label">При M2 expansion</span><span class="price-value" style="color:#10b981">$200K-300K</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Upcoming Catalysts</div>
+    <div class="catalyst"><div><div class="catalyst-name">INTC Q2 Earnings</div><div class="catalyst-date">23 юли 2026</div></div><span style="color:#10b981;font-size:10px;font-weight:700">BULL</span></div>
+    <div class="catalyst"><div><div class="catalyst-name">HYMC Q2 Earnings</div><div class="catalyst-date">29 юли 2026</div></div><span style="color:#10b981;font-size:10px;font-weight:700">BULL</span></div>
+    <div class="catalyst"><div><div class="catalyst-name">MOG Earnings</div><div class="catalyst-date">4 авг. 2026</div></div><span style="color:#10b981;font-size:10px;font-weight:700">BULL</span></div>
+    <div class="catalyst"><div><div class="catalyst-name">EXK Q2 Earnings</div><div class="catalyst-date">12 авг. 2026</div></div><span style="color:#10b981;font-size:10px;font-weight:700">BULL</span></div>
+    <div class="catalyst"><div><div class="catalyst-name">APGO PEA Резултати</div><div class="catalyst-date">Q3 2026</div></div><span style="color:#10b981;font-size:10px;font-weight:700">KEY</span></div>
+    <div class="catalyst"><div><div class="catalyst-name">BTG Fekola Permit</div><div class="catalyst-date">Q3 2026</div></div><span style="color:#10b981;font-size:10px;font-weight:700">KEY</span></div>
+    <div class="catalyst"><div><div class="catalyst-name">MOG Chile Assays</div><div class="catalyst-date">Q3 2026</div></div><span style="color:#10b981;font-size:10px;font-weight:700">KEY</span></div>
+    <div class="catalyst" style="margin:0"><div><div class="catalyst-name">HYMC $19 Limit Order</div><div class="catalyst-date">Post-dilution entry</div></div><span style="color:#f59e0b;font-size:10px;font-weight:700">WATCH</span></div>
+  </div>
+</div>
+
+<!-- ЛИНКОВЕ -->
+<div id="tab-links" class="content" style="display:none">
+
+  <div class="card">
+    <div class="card-title">Bitcoin On-Chain</div>
+    <a href="https://www.lookintobitcoin.com/charts/mvrv-zscore/" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1f2937">
+        <div><div style="color:#f9fafb;font-size:13px;font-weight:600">MVRV Z-Score</div><div style="color:#6b7280;font-size:10px">Праг: под 0 = капитулация · lookintobitcoin.com</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+    <a href="https://www.lookintobitcoin.com/charts/relative-unrealized-profit--loss/" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1f2937">
+        <div><div style="color:#f9fafb;font-size:13px;font-weight:600">NUPL</div><div style="color:#6b7280;font-size:10px">Праг: под 0 = пълна капитулация · lookintobitcoin.com</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+    <a href="https://glassnode.com/metrics/indicators/sopr" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1f2937">
+        <div><div style="color:#f9fafb;font-size:13px;font-weight:600">aSOPR</div><div style="color:#6b7280;font-size:10px">Праг: под 1.0 = продажби на загуба · glassnode.com</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+    <a href="https://www.lookintobitcoin.com/charts/realized-price/" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
+        <div><div style="color:#f9fafb;font-size:13px;font-weight:600">Realized Price</div><div style="color:#6b7280;font-size:10px">LTH: $49,479 · lookintobitcoin.com</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Bitcoin Sentiment & Leverage</div>
+    <a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1f2937">
+        <div><div style="color:#f9fafb;font-size:13px;font-weight:600">Fear & Greed Index</div><div style="color:#6b7280;font-size:10px">Праг: под 10 = extreme fear · alternative.me</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+    <a href="https://www.coinglass.com/pro/futures/LiquidationData" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1f2937">
+        <div><div style="color:#f9fafb;font-size:13px;font-weight:600">Liquidations</div><div style="color:#6b7280;font-size:10px">Праг: над $1B/24ч = капитулация · coinglass.com</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+    <a href="https://www.coinglass.com/FundingRate" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1f2937">
+        <div><div style="color:#f9fafb;font-size:13px;font-weight:600">Funding Rate</div><div style="color:#6b7280;font-size:10px">Праг: под -0.05% = bearish · coinglass.com</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+    <a href="https://www.coinglass.com/BitcoinOpenInterest" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
+        <div><div style="color:#f9fafb;font-size:13px;font-weight:600">Open Interest</div><div style="color:#6b7280;font-size:10px">При спад = deleveraging · coinglass.com</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Сребро & Злато</div>
+    <a href="https://www.barchart.com/futures/quotes/SI*0/options" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1f2937">
+        <div><div style="color:#f9fafb;font-size:13px;font-weight:600">Silver Options (Put/Call)</div><div style="color:#6b7280;font-size:10px">OI Ratio под 0.40 = bullish · barchart.com</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+    <a href="https://www.barchart.com/futures/quotes/SI*0/interactive-chart" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1f2937">
+        <div><div style="color:#f9fafb;font-size:13px;font-weight:600">Silver Price Chart</div><div style="color:#6b7280;font-size:10px">COMEX Silver Futures · barchart.com</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+    <a href="https://www.barchart.com/futures/quotes/GC*0/interactive-chart" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1f2937">
+        <div><div style="color:#f9fafb;font-size:13px;font-weight:600">Gold Price Chart</div><div style="color:#6b7280;font-size:10px">COMEX Gold Futures · barchart.com</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+    <a href="https://www.sprottmoney.com/blog" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
+        <div><div style="color:#f9fafb;font-size:13px;font-weight:600">Sprott Money Blog</div><div style="color:#6b7280;font-size:10px">Официален Sprott анализ · sprottmoney.com</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Strategy (Saylor Стрес)</div>
+    <a href="https://www.coinglass.com/pro/futures/MicroStrategy" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1f2937">
+        <div><div style="color:#f9fafb;font-size:13px;font-weight:600">Strategy BTC Position</div><div style="color:#6b7280;font-size:10px">Avg cost $75,651 · coinglass.com</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+    <a href="https://finance.yahoo.com/quote/STRC/" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
+        <div><div style="color:#f9fafb;font-size:13px;font-weight:600">STRC Preferred Stock</div><div style="color:#6b7280;font-size:10px">Праг: под $85 = Strategy под стрес · Yahoo Finance</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Macro & Fed</div>
+    <a href="https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1f2937">
+        <div><div style="color:#f9fafb;font-size:13px;font-weight:600">CME FedWatch Tool</div><div style="color:#6b7280;font-size:10px">Hike/cut вероятности · cmegroup.com</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+    <a href="https://fred.stlouisfed.org/series/M2SL" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1f2937">
+        <div><div style="color:#f9fafb;font-size:13px;font-weight:600">M2 Money Supply</div><div style="color:#6b7280;font-size:10px">Ключов Bitcoin driver · fred.stlouisfed.org</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+    <a href="https://fiscaldata.treasury.gov/datasets/debt-to-the-penny/" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
+        <div><div style="color:#f9fafb;font-size:13px;font-weight:600">US National Debt</div><div style="color:#6b7280;font-size:10px">$39.2 трлн. текущо · treasury.gov</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Mining Акции</div>
+    <a href="https://finance.yahoo.com/quote/EXK/" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1f2937">
+        <div><div style="color:#f59e0b;font-size:13px;font-weight:700">EXK</div><div style="color:#6b7280;font-size:10px">Endeavour Silver · Q2: 12 авг.</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+    <a href="https://finance.yahoo.com/quote/APGO.V/" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1f2937">
+        <div><div style="color:#f59e0b;font-size:13px;font-weight:700">APGO</div><div style="color:#6b7280;font-size:10px">Apollo Silver · PEA Q3 2026</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+    <a href="https://finance.yahoo.com/quote/BTG/" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1f2937">
+        <div><div style="color:#f59e0b;font-size:13px;font-weight:700">BTG</div><div style="color:#6b7280;font-size:10px">B2Gold · Fekola permit pending</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+    <a href="https://finance.yahoo.com/quote/MOG.V/" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1f2937">
+        <div><div style="color:#f59e0b;font-size:13px;font-weight:700">MOG.V</div><div style="color:#6b7280;font-size:10px">Mogotes Metals · Rio Tinto $15M</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+    <a href="https://finance.yahoo.com/quote/HYMC/" target="_blank" style="text-decoration:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
+        <div><div style="color:#f59e0b;font-size:13px;font-weight:700">HYMC</div><div style="color:#6b7280;font-size:10px">Hycroft Mining · Limit $19</div></div>
+        <span style="color:#3b82f6;font-size:18px">→</span>
+      </div>
+    </a>
+  </div>
+
+</div>
+
+<script>
+let btcPriceLive = null;
+
+function showTab(id, btn) {
+  document.querySelectorAll('[id^="tab-"]').forEach(t => t.style.display = 'none');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + id).style.display = 'block';
+  btn.classList.add('active');
+}
+
+function fmtChange(n) {
+  if (n == null) return '—';
+  const s = (n > 0 ? '+' : '') + n.toFixed(2) + '%';
+  return s;
+}
+
+function changeColor(n) {
+  if (n == null) return '#6b7280';
+  return n > 0 ? '#10b981' : '#ef4444';
+}
+
+function updateCapMatrix(btcPrice, btcVolume, fg) {
+  const avgVol = 23800000000;
+  const volX = btcVolume ? btcVolume / avgVol : null;
+
+  const signals = [
+    { label: 'Fear & Greed < 10', status: fg != null ? (fg < 10 ? 'confirmed' : fg < 20 ? 'warning' : 'none') : 'none' },
+    { label: 'Volume 4x+', status: volX != null ? (volX >= 4 ? 'confirmed' : volX >= 2.5 ? 'warning' : 'none') : 'warning' },
+    { label: 'BTC < $60K (200W MA)', status: btcPrice != null ? (btcPrice < 60000 ? 'confirmed' : btcPrice < 65000 ? 'warning' : 'none') : 'none' },
+    { label: 'BTC < $49,479 (LTH)', status: btcPrice != null ? (btcPrice < 49479 ? 'confirmed' : btcPrice < 55000 ? 'warning' : 'none') : 'none' },
+    { label: 'Ликвидации $1B+', status: 'warning' },
+    { label: 'ETF Outflows', status: 'warning' },
+    { label: 'Funding негативен', status: 'warning' },
+    { label: 'STRC < $85', status: 'warning' },
+  ];
+
+  const chips = document.getElementById('cap-chips');
+  chips.innerHTML = signals.map(s =>
+    `<div class="chip ${s.status}">${s.label}</div>`
+  ).join('');
+
+  const confirmed = signals.filter(s => s.status === 'confirmed').length;
+  const pct = Math.round((confirmed / signals.length) * 100);
+  const bar = document.getElementById('cap-bar');
+  bar.style.width = pct + '%';
+  bar.style.background = pct > 70 ? '#ef4444' : pct > 40 ? '#f59e0b' : '#10b981';
+
+  const warning = signals.filter(s => s.status === 'warning').length;
+  document.getElementById('cap-summary').innerHTML =
+    `<span style="color:${pct > 50 ? '#ef4444' : '#10b981'};font-weight:700">${confirmed}/${signals.length}</span> потвърдени · <span style="color:#f59e0b">${warning}</span> близо до праг`;
+}
+
+function updateDCAZones(btcPrice) {
+  const zones = [
+    { part: '1 вноска', price: '~$62K', threshold: 65000, action: 'Малка вноска — около пазарна цена' },
+    { part: '2 вноски', price: '$52-55K', threshold: 55000, action: 'Fed hike + Saylor ефект' },
+    { part: '3 вноски', price: '$49,479', threshold: 49479, action: 'LTH Realized Price пробит' },
+    { part: '4 вноски', price: '$45-47K', threshold: 47000, action: 'Пълна капитулация (4x vol + F&G<10)' },
+  ];
+  document.getElementById('dca-zones').innerHTML = zones.map(z => {
+    const active = btcPrice && btcPrice <= z.threshold;
+    return `<div class="dca-item ${active ? 'dca-active' : 'dca-inactive'}">
+      <div>
+        <div style="color:${active ? '#10b981' : '#f9fafb'};font-size:12px;font-weight:700">${z.part} — ${z.price}</div>
+        <div style="color:#6b7280;font-size:10px">${z.action}</div>
+      </div>
+      <div style="font-size:18px">${active ? '✅' : '⏳'}</div>
+    </div>`;
+  }).join('');
+}
+
+async function fetchAll() {
+  document.getElementById('last-update').textContent = 'Зарежда...';
+  document.getElementById('error-msg').style.display = 'none';
+  try {
+    // Fear & Greed
+    const fgRes = await fetch('https://api.alternative.me/fng/?limit=1');
+    const fgData = await fgRes.json();
+    const fg = parseInt(fgData.data[0].value);
+    const fgText = fgData.data[0].value_classification;
+    const fgEl = document.getElementById('fg-val');
+    fgEl.textContent = fg;
+    fgEl.style.color = fg < 20 ? '#ef4444' : fg < 40 ? '#f59e0b' : '#10b981';
+    document.getElementById('fg-label').textContent = fgText;
+
+    // Crypto prices
+    const cgRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,ripple&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true');
+    const cg = await cgRes.json();
+
+    const btc = cg.bitcoin;
+    const eth = cg.ethereum;
+    const xrp = cg.ripple;
+
+    btcPriceLive = btc?.usd;
+
+    if (btc) {
+      document.getElementById('btc-price').textContent = '$' + btc.usd.toLocaleString('en-US', {maximumFractionDigits: 0});
+      const chEl = document.getElementById('btc-change');
+      chEl.textContent = fmtChange(btc.usd_24h_change);
+      chEl.style.color = changeColor(btc.usd_24h_change);
+
+      const sig = document.getElementById('btc-signal');
+      if (btc.usd_24h_change > 3) { sig.textContent = '▲ BULL'; sig.style.color = '#10b981'; }
+      else if (btc.usd_24h_change < -3) { sig.textContent = '▼ BEAR'; sig.style.color = '#ef4444'; }
+      else { sig.textContent = ''; }
+
+      const volB = (btc.usd_24h_vol / 1e9).toFixed(1);
+      const volX = btc.usd_24h_vol / 23800000000;
+      document.getElementById('btc-vol').textContent = '$' + volB + 'B';
+      document.getElementById('btc-vol-x').textContent = volX.toFixed(2) + 'x среден (праг: 4x)';
+    }
+
+    if (eth) {
+      document.getElementById('eth-price').textContent = '$' + eth.usd.toLocaleString('en-US', {maximumFractionDigits: 0});
+      const ec = document.getElementById('eth-change');
+      ec.textContent = fmtChange(eth.usd_24h_change);
+      ec.style.color = changeColor(eth.usd_24h_change);
+    }
+
+    if (xrp) {
+      document.getElementById('xrp-price').textContent = '$' + xrp.usd.toFixed(3);
+      const xc = document.getElementById('xrp-change');
+      xc.textContent = fmtChange(xrp.usd_24h_change);
+      xc.style.color = changeColor(xrp.usd_24h_change);
+    }
+
+    updateCapMatrix(btc?.usd, btc?.usd_24h_vol, fg);
+    updateDCAZones(btc?.usd);
+
+    document.getElementById('last-update').textContent = 'Актуализиран в ' + new Date().toLocaleTimeString('bg-BG') + ' · на всеки 5 мин.';
+
+  } catch(e) {
+    const err = document.getElementById('error-msg');
+    err.textContent = 'Грешка при зареждане — проверете мрежата';
+    err.style.display = 'block';
+    document.getElementById('last-update').textContent = 'Грешка · ' + new Date().toLocaleTimeString('bg-BG');
+  }
+}
+
+fetchAll();
+setInterval(fetchAll, 300000);
+</script>
+</body>
+</html>
